@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Values match the frontend's ApplicationStatus union.
+enum ApplicationStatus {
+  applied
+  interview
+  rejected
+  offer
+}
+
+// Public job-board APIs we can read open positions from.
+enum AtsProvider {
+  greenhouse
+  lever
+  ashby
+}
+
+enum DocumentKind {
+  cv
+  cover_letter
+  other
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  name         String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  applications Application[]
+  companies    Company[]
+  notes        Note[]
+  documents    Document[]
+
+  @@map("users")
+}
+
+model Application {
+  id          String            @id @default(uuid())
+  company     String
+  role        String
+  status      ApplicationStatus @default(applied)
+  appliedAt   DateTime          @default(now()) @map("applied_at")
+  dueAt       DateTime?         @map("due_at")
+  interviewAt DateTime?         @map("interview_at")
+  location    String?
+  jobUrl      String?           @map("job_url")
+  salary      String?
+  notes       String?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  noteItems Note[]
+  documents Document[]
+
+  @@index([userId, status])
+  @@index([userId, appliedAt])
+  @@index([userId, dueAt])
+  @@index([userId, interviewAt])
+  @@map("applications")
+}
+
+// Applications reference companies by name (case-insensitive); this holds the
+// extra details for one, including where its job board lives.
+model Company {
+  id          String       @id @default(uuid())
+  name        String
+  website     String?
+  atsProvider AtsProvider? @map("ats_provider")
+  atsSlug     String?      @map("ats_slug")
+  notes       String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@map("companies")
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  title     String
+  content   String   @default("")
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  applicationId String?      @map("application_id")
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, updatedAt])
+  @@map("notes")
+}
+
+model Document {
+  id          String       @id @default(uuid())
+  name        String
+  kind        DocumentKind @default(other)
+  fileName    String       @map("file_name")
+  mimeType    String       @map("mime_type")
+  size        Int
+  storagePath String       @map("storage_path")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  applicationId String?      @map("application_id")
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("documents")
+}
