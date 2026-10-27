@@ -17,7 +17,7 @@ A full-stack application for tracking job applications, company details, notes, 
 - `frontend/` is a Next.js App Router application. Routes are in `frontend/src/app/`, feature UI in `frontend/src/components/`, and the shared Axios client and React Query hooks in `frontend/src/lib/`.
 - `backend/` is a NestJS REST API organized into feature modules under `backend/src/`. Controllers handle HTTP requests and services implement application logic using the shared Prisma service.
 - `backend/prisma/schema.prisma` defines the PostgreSQL data model. Database migrations are in `backend/prisma/migrations/`.
-- API routes use the `/api` prefix. Authenticated requests use a JWT bearer token, and user-owned records are scoped to the authenticated user.
+- API routes use the `/api` prefix. In the Vercel deployment, the frontend proxies these requests to the private backend service using a service binding. Authenticated requests use a JWT bearer token, and user-owned records are scoped to the authenticated user.
 
 ## Requirements
 
@@ -92,3 +92,11 @@ Run commands from the corresponding project directory.
 | `backend/` | `npm run lint` | Lint backend files (this script applies fixes) |
 
 For repository conventions and additional command details, see [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
+
+## Vercel deployment
+
+The root [`vercel.json`](vercel.json) configures the `backend` and `frontend` services in one Vercel project. The frontend is public and handles all paths, including `/api/*`; a Next.js route handler proxies API requests to the private NestJS backend over the `BACKEND_URL` service binding. Vercel injects this binding at runtime; do not set it manually. The frontend uses the same-origin `/api` path by default, so do not set `NEXT_PUBLIC_API_URL` to a localhost or separate deployment URL in Vercel.
+
+Configure `DATABASE_URL` and `JWT_SECRET` for the backend service in Vercel. Uploaded documents currently use local filesystem storage (`backend/src/documents/documents.service.ts`), which is not durable on Vercel Functions; configure persistent external object storage before relying on document uploads in production.
+
+Test the services together locally with `vercel dev`.
